@@ -30,9 +30,14 @@ void printf_threadsafe(char *format, ...)
 
 void *dragon_draw_worker(void *data)
 {
+	struct draw_data* info = (struct draw_data *) data;
+
 	/* 1. Initialiser la surface */
+
 	/* 2. Dessiner le dragon */
+
 	/* 3. Effectuer le rendu final */
+
 	return NULL;
 }
 
@@ -58,6 +63,8 @@ int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height,
 		goto err;
 
 	/* 1. Initialiser barrier. */
+	pthread_barrier_t barrier;
+	pthread_barrier_init(&barrier, NULL, nb_thread);
 
 	if (dragon_limits_pthread(&lim, size, nb_thread) < 0)
 		goto err;
@@ -91,17 +98,31 @@ int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height,
 	info.dragon = dragon;
 	info.image = image;
 	info.size = size;
-	info.limits = lim;
+	info.limits = lim;0.
 	info.barrier = &barrier;
 	info.palette = palette;
 	info.dragon = dragon;
 	info.image = image;
 
+	// clear dragon
+	init_canvas(0, info.dragon_width * info.dragon_height, dragon, -1);
+
 	/* 2. Lancement du calcul parallèle principal avec draw_dragon_worker */
+	int tid;
+	for(tid = 0; tid < nb_thread; ++tid) {
+		uint64_t start = tid * size / nb_thread;
+		uint64_t end = (tid + 1) * size / nb_thread;
+		pthread_create(&threads[tid], NULL, dragon_draw_raw, &info)
+	}
 
 	/* 3. Attendre la fin du traitement */
+	for(tid = 0; tid < nb_thread; ++tid){
+		pthread_join(&threads[tid], NULL);
+	}
 
 	/* 4. Destruction des variables (à compléter). */ 
+	pthread_barrier_destroy(&barrier);
+
 
 done:
 	FREE(data);
@@ -140,25 +161,23 @@ int dragon_limits_pthread(limits_t *limits, uint64_t size, int nb_thread)
 
 	/* 1. ALlouer de l'espace pour threads et threads_data. */
 	threads = calloc(nb_thread, sizeof(pthread_t));
-	thread_data = calloc(nb_thread, sizeof(struc limit_data));
+	thread_data = calloc(nb_thread, sizeof(struct limit_data));
 
 	/* 2. Lancement du calcul en parallèle avec dragon_limit_worker. */
 	int tid = 0;
-	for(tid = 0; tid < nb_threads; ++tid){
+	for(tid = 0; tid < nb_thread; ++tid){
 		thread_data[tid].id = tid;
 		thread_data[tid].start = tid*size/nb_thread;
 		thread_data[tid].end = (tid+1)*size/nb_thread;
 		thread_data[tid].piece = master;
 
-		pthread_create(threads+tid, NULL, dragon_limit_worker, thread_data+thread_id);
+		pthread_create(&threads[tid], NULL, dragon_limit_worker, &thread_data[tid]);
 	}
 
 	/* 3. Attendre la fin du traitement. */
 	for(tid = 0; tid < nb_thread; ++tid){
-		pthread_join(threads[tid], NULL);
+		pthread_join(&threads[tid], NULL);
 	}
-
-	TODO("DOIS JE FAIRE UN MERGE");
 
 done:
 	FREE(threads);
