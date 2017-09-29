@@ -72,7 +72,7 @@ class DragonClear {
 		DragonClear(char value, char* canvas) : _value(value), _canvas(canvas) {}
 		DragonClear(const DragonClear& dC) : _value(dC._value), _canvas(dC._canvas){}
 		void operator()(const blocked_range<int>& r) const {
-			init_canvas(r.begin(), r.end(), _canvas, -1);
+			init_canvas(r.begin(), r.end(), _canvas, 0);
 		}
 };
 
