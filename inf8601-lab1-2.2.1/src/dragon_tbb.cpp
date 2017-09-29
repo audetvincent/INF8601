@@ -140,15 +140,15 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
 
 	/* 2. Initialiser la surface : DragonClear */
 	DragonClear dC = DragonClear(dragon);
-	parallel_for(blocked_range<int>(0, dragon_surface), dC);
+	parallel_for(blocked_range<uint64_t>(0, dragon_surface), dC);
 
 	/* 3. Dessiner le dragon : DragonDraw */
 	DragonDraw dD = DragonDraw(&data);
-	parallel_for(blocked_range<int>(0, data.size), dD);
+	parallel_for(blocked_range<uint64_t>(0, data.size), dD);
 
 	/* 4. Effectuer le rendu final */
 	DragonRender dR = DragonRender(&data);
-	parallel_for(blocked_range<int>(0, data.size), dR);
+	parallel_for(blocked_range<uint64_t>(0, data.size), dR);
 	
 	init.terminate();
 
