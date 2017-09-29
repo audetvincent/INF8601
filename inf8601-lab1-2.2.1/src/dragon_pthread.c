@@ -66,8 +66,6 @@ void *dragon_draw_worker(void *data)
 
 int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height, uint64_t size, int nb_thread)
 {
-	TODO("dragon_draw_pthread");
-
 	pthread_t *threads = NULL;
 	pthread_barrier_t barrier;
 	limits_t lim;
@@ -127,10 +125,9 @@ int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height,
 	/* 2. Lancement du calcul parallèle principal avec draw_dragon_worker */
 	int tid;
 	for(tid = 0; tid < nb_thread; ++tid) {
-		/* assign an id to all threads */
-		info.id = tid;
-		info.barrier = &barrier;
-		if(pthread_create(&threads[tid], NULL, dragon_draw_worker, &info)) goto err;
+		data[tid] = info;
+		data[tid].id = tid;
+		if(pthread_create(&threads[tid], NULL, dragon_draw_worker, &data[tid])) goto err;
 	}
 
 	/* 3. Attendre la fin du traitement */
@@ -168,8 +165,6 @@ void *dragon_limit_worker(void *data)
  */
 int dragon_limits_pthread(limits_t *limits, uint64_t size, int nb_thread)
 {
-	TODO("dragon_limits_pthread");
-
 	int ret = 0;
 	pthread_t *threads = NULL;
 	struct limit_data *thread_data = NULL;

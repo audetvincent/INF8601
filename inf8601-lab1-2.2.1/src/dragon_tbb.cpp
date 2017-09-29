@@ -19,6 +19,9 @@ extern "C" {
 using namespace std;
 using namespace tbb;
 
+static TidMap* tid = NULL;
+static int test = 0;
+
 class DragonLimits {
 	public:
 		piece_t _value;
@@ -41,14 +44,16 @@ class DragonLimits {
 
 class DragonDraw {
 	public:
-		char _i;
+		int _i;
 		struct draw_data* _data;
 
 		DragonDraw(struct draw_data* data) : _i(0), _data(data) {}
 		DragonDraw(const DragonDraw& dD) : _data(dD._data){
-			_i = rand();
+			cout << " Copy " << tid->getIdFromTid(gettid()) << endl;
+			_i = tid->getIdFromTid(gettid());
 		}
 		void operator()(const blocked_range<uint64_t>& r) const {
+			cout << " operator " << _i << endl;
 			dragon_draw_raw(r.begin() , r.end(), _data->dragon, _data->dragon_width, _data->dragon_height, _data->limits, _i);
 		}
 };
@@ -72,7 +77,7 @@ class DragonClear {
 		DragonClear(char value, char* canvas) : _value(value), _canvas(canvas) {}
 		DragonClear(const DragonClear& dC) : _value(dC._value), _canvas(dC._canvas){}
 		void operator()(const blocked_range<int>& r) const {
-			init_canvas(r.begin(), r.end(), _canvas, 0);
+			init_canvas(r.begin(), r.end(), _canvas, -1);
 		}
 };
 
@@ -128,6 +133,7 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
 	data.deltaJ = deltaJ;
 	data.palette = palette;
 	data.tid = (int *) calloc(nb_thread, sizeof(int));
+	tid = new TidMap(nb_thread);	
 
 	/* 2. Initialiser la surface : DragonClear */
 	DragonClear dC = DragonClear(-1, dragon);
@@ -146,6 +152,8 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
 	free_palette(palette);
 	FREE(data.tid);
 	*canvas = dragon;
+	tid->dump();
+	delete tid;
 	// *canvas = NULL;
 	return 0;
 }
