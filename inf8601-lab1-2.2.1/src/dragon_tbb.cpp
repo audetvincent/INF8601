@@ -154,8 +154,8 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
 
 	free_palette(palette);
 	FREE(data.tid);
-	//*canvas = dragon;
-	*canvas = NULL;
+	*canvas = dragon;
+	//*canvas = NULL;
 	return 0;
 }
 
@@ -173,7 +173,7 @@ int dragon_limits_tbb(limits_t *limits, uint64_t size, int nb_thread)
 
 	piece_t piece;
 	//piece_init(&piece);
-	piece = lim.piece;
+	piece = lim.piece; // on veut celle calcule.
 	*limits = piece.limits;
 	return 0;
 }
