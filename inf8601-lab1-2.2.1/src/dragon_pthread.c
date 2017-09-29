@@ -33,10 +33,33 @@ void *dragon_draw_worker(void *data)
 	struct draw_data* info = (struct draw_data *) data;
 
 	/* 1. Initialiser la surface */
+	// clear dragon
+	int surface = info->dragon_width * info->dragon_height;
+	int start_sur = (info->id    ) * surface / info->nb_thread;
+	int end_sur   = (info->id + 1) * surface / info->nb_thread;
+	init_canvas(start_sur, end_sur, info->dragon, -1);
+
+	/* Synchronize all threads before drawing*/
+	pthread_barrier_wait(info->barrier);
 
 	/* 2. Dessiner le dragon */
+	uint64_t start_img = (info->id    ) * info->size / info->nb_thread;
+	uint64_t end_img   = (info->id + 1) * info->size / info->nb_thread;
+	dragon_draw_raw(start_img, end_img, info->dragon, info->dragon_width, info->dragon_height, info->limits, info->id);
 
 	/* 3. Effectuer le rendu final */
+	// Scale dragon to fit the final image
+	scale_dragon(
+		(info->id    ) * info->image_height / info->nb_thread, 
+		(info->id + 1) * info->image_height / info->nb_thread, 
+		info->image, 
+		info->image_width, 
+		info->image_height, 
+		info->dragon, 
+		info->dragon_width, 
+		info->dragon_height, 
+		info->palette
+		);
 
 	return NULL;
 }
@@ -50,20 +73,17 @@ int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height,
 	limits_t lim;
 	struct draw_data info;
 	char *dragon = NULL;
-	int i;
 	int scale_x;
 	int scale_y;
 	struct draw_data *data = NULL;
 	struct palette *palette = NULL;
 	int ret = 0;
-	int r;
 
 	palette = init_palette(nb_thread);
 	if (palette == NULL)
 		goto err;
 
 	/* 1. Initialiser barrier. */
-	pthread_barrier_t barrier;
 	pthread_barrier_init(&barrier, NULL, nb_thread);
 
 	if (dragon_limits_pthread(&lim, size, nb_thread) < 0)
@@ -98,30 +118,28 @@ int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height,
 	info.dragon = dragon;
 	info.image = image;
 	info.size = size;
-	info.limits = lim;0.
+	info.limits = lim;
 	info.barrier = &barrier;
 	info.palette = palette;
 	info.dragon = dragon;
 	info.image = image;
 
-	// clear dragon
-	init_canvas(0, info.dragon_width * info.dragon_height, dragon, -1);
-
 	/* 2. Lancement du calcul parallèle principal avec draw_dragon_worker */
 	int tid;
 	for(tid = 0; tid < nb_thread; ++tid) {
-		uint64_t start = tid * size / nb_thread;
-		uint64_t end = (tid + 1) * size / nb_thread;
-		pthread_create(&threads[tid], NULL, dragon_draw_raw, &info)
+		/* assign an id to all threads */
+		info.id = tid;
+		info.barrier = &barrier;
+		if(pthread_create(&threads[tid], NULL, dragon_draw_worker, &info)) goto err;
 	}
 
 	/* 3. Attendre la fin du traitement */
 	for(tid = 0; tid < nb_thread; ++tid){
-		pthread_join(&threads[tid], NULL);
+		if(pthread_join(threads[tid], NULL)) goto err;
 	}
 
 	/* 4. Destruction des variables (à compléter). */ 
-	pthread_barrier_destroy(&barrier);
+	if(pthread_barrier_destroy(&barrier)) goto err;
 
 
 done:
@@ -171,12 +189,17 @@ int dragon_limits_pthread(limits_t *limits, uint64_t size, int nb_thread)
 		thread_data[tid].end = (tid+1)*size/nb_thread;
 		thread_data[tid].piece = master;
 
-		pthread_create(&threads[tid], NULL, dragon_limit_worker, &thread_data[tid]);
+		if(pthread_create(&threads[tid], NULL, dragon_limit_worker, &thread_data[tid])) goto err;
 	}
 
 	/* 3. Attendre la fin du traitement. */
 	for(tid = 0; tid < nb_thread; ++tid){
-		pthread_join(&threads[tid], NULL);
+		if(pthread_join(threads[tid], NULL)) goto err;
+	}
+
+	/*merge pieces */
+	for(tid = 0; tid < nb_thread ; ++tid){
+		piece_merge(&master, thread_data[tid].piece);
 	}
 
 done:
