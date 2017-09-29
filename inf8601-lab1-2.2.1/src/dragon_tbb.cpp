@@ -48,9 +48,6 @@ class DragonDraw {
 		DragonDraw(const DragonDraw& dD) : _data(dD._data){
 			_i = rand();
 		}
-		~DragonDraw(){
-			delete _data;
-		}
 		void operator()(const blocked_range<uint64_t>& r) const {
 			dragon_draw_raw(r.begin() , r.end(), _data->dragon, _data->dragon_width, _data->dragon_height, _data->limits, _i);
 		}
@@ -62,10 +59,7 @@ class DragonRender {
 
 		DragonRender(struct draw_data* data) : _data(data) {}
 		DragonRender(const DragonRender& dR) : _data(dR._data){}
-		~DragonRender(){
-			delete _data;
-		}
-		void operator()(const blocked_range<uint64_t>& r) const {
+		void operator()(const blocked_range<int>& r) const {
 			scale_dragon(r.begin(), r.end(), _data->image, _data->image_width, _data->image_height, _data->dragon, _data->dragon_width, _data->dragon_height, _data->palette);
 		}
 };
@@ -75,12 +69,9 @@ class DragonClear {
 		char _value;
 		char* _canvas;
 
-		DragonClear(char* canvas) : _value(-1), _canvas(canvas) {}
+		DragonClear(char value, char* canvas) : _value(value), _canvas(canvas) {}
 		DragonClear(const DragonClear& dC) : _value(dC._value), _canvas(dC._canvas){}
-		~DragonClear(){
-			delete _canvas;
-		}
-		void operator()(const blocked_range<uint64_t>& r) const {
+		void operator()(const blocked_range<int>& r) const {
 			init_canvas(r.begin(), r.end(), _canvas, -1);
 		}
 };
@@ -139,8 +130,8 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
 	data.tid = (int *) calloc(nb_thread, sizeof(int));
 
 	/* 2. Initialiser la surface : DragonClear */
-	DragonClear dC = DragonClear(dragon);
-	parallel_for(blocked_range<uint64_t>(0, dragon_surface), dC);
+	DragonClear dC = DragonClear(-1, dragon);
+	parallel_for(blocked_range<int>(0, dragon_surface), dC);
 
 	/* 3. Dessiner le dragon : DragonDraw */
 	DragonDraw dD = DragonDraw(&data);
@@ -148,7 +139,7 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
 
 	/* 4. Effectuer le rendu final */
 	DragonRender dR = DragonRender(&data);
-	parallel_for(blocked_range<uint64_t>(0, data.size), dR);
+	parallel_for(blocked_range<int>(0, data.image_height), dR);
 	
 	init.terminate();
 
