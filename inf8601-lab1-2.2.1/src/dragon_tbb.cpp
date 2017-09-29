@@ -20,6 +20,7 @@ using namespace std;
 using namespace tbb;
 
 static TidMap* tid = NULL;
+static int inc = 0;
 
 class DragonLimits {
 	public:
@@ -53,16 +54,14 @@ class DragonDraw {
 			_i = tid->getIdFromTid(gettid());
 		}
 		void operator()(const blocked_range<uint64_t>& r) const {
-			//Si la ligne ci-dessous est decommentee, on ralenti
-			//le calcul, donc on force la repartition des taches sur plusieurs
-			//threads. Sinon, lorsqu'elle est commentee, seulement 
-			//notre image sera dessinee avec un seul thread.
-			
-			//cout << " operator " << _i << endl;
-			
-			//if (r.begin() < (_data->size / _data->nb_thread))
-			
-			dragon_draw_raw(r.begin(), r.end(), _data->dragon, _data->dragon_width, _data->dragon_height, _data->limits, _i);
+			//Comme la repartition des intervalles a travers les threads
+			//est geree par tbb, nous optons pour decider de la couleur
+			//du thread courant avec le debut de son intervalle, plutot
+			//que de lui assigner une couleur au depart. Ceci est du au
+			//fait que le createur d'un DragonDraw n'est peut-etre pas
+			//son utilisateur.
+
+			dragon_draw_raw(r.begin(), r.end(), _data->dragon, _data->dragon_width, _data->dragon_height, _data->limits, 	r.begin() * _data->nb_thread / _data->size);
 		}
 };
 
