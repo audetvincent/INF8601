@@ -20,33 +20,34 @@ using namespace std;
 using namespace tbb;
 
 class DragonLimits {
-	piece_t value;
-
 	public:
+		piece_t _value;
+
 		DragonLimits(){
-			piece_init(&value); //par reference comme demande
+			piece_init(&_value);
 		}
 		DragonLimits(const DragonLimits& dL, split){
-			piece_init(&value);
+			piece_init(&_value);
 		}
-		void ~DragonLimits(){
-			delete value;
+		~DragonLimits(){
 		}
-		void DragonLimits::operator()(const blocked_range<uint64_t>& r){
-			piece_limit(r.begin(), r.end(), &value);				
+		void operator()(const blocked_range<uint64_t>& r){
+			piece_limit(r.begin(), r.end(), &_value);
 		}
-		void join(DragonLimits& dL){
-			piece_merge(&value, dL.value);
+		void join(const DragonLimits& dL){
+			piece_merge(&_value, dL._value);
 		}
 };
 
 class DragonDraw {
 	public:
-		int _i;
+		char _i;
 		struct draw_data* _data;
 
 		DragonDraw(struct draw_data* data) : _i(0), _data(data) {}
-		DragonDraw(const DragonDraw& dD) : _i(dC._i), _data(dC._data){}
+		DragonDraw(const DragonDraw& dD) : _data(dD._data){
+			_i = rand();
+		}
 		~DragonDraw(){
 			delete _data;
 		}
@@ -59,24 +60,24 @@ class DragonRender {
 	public:
 		struct draw_data* _data;
 
-		DragonDraw(struct draw_data* data) : _data(data) {}
-		DragonDraw(const DragonDraw& dD) : _data(dC._data){}
-		~DragonDraw(){
+		DragonRender(struct draw_data* data) : _data(data) {}
+		DragonRender(const DragonRender& dR) : _data(dR._data){}
+		~DragonRender(){
 			delete _data;
 		}
 		void operator()(const blocked_range<uint64_t>& r) const {
-			scale_dragon(r.begin(), r.end(), data->image, data->image_width, data->image_height, data->dragon, data->dragon_width, data->dragon_height, data->palette);
+			scale_dragon(r.begin(), r.end(), _data->image, _data->image_width, _data->image_height, _data->dragon, _data->dragon_width, _data->dragon_height, _data->palette);
 		}
 };
 
 class DragonClear {
 	public:
-		char* _value, _canvas;
+		char _value;
+		char* _canvas;
 
-		DragonClear(char* canvas) : &_value(-1), _canvas(canvas) {}
+		DragonClear(char* canvas) : _value(-1), _canvas(canvas) {}
 		DragonClear(const DragonClear& dC) : _value(dC._value), _canvas(dC._canvas){}
 		~DragonClear(){
-			delete _value;
 			delete _canvas;
 		}
 		void operator()(const blocked_range<uint64_t>& r) const {
@@ -86,7 +87,6 @@ class DragonClear {
 
 int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uint64_t size, int nb_thread)
 {
-	TODO("dragon_draw_tbb");
 	struct draw_data data;
 	limits_t limits;
 	char *dragon = NULL;
@@ -140,22 +140,22 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
 
 	/* 2. Initialiser la surface : DragonClear */
 	DragonClear dC = DragonClear(dragon);
-	parallel_for(blocked_range<uint64_t>(0, dragon_surface), dC);
+	parallel_for(blocked_range<int>(0, dragon_surface), dC);
 
 	/* 3. Dessiner le dragon : DragonDraw */
 	DragonDraw dD = DragonDraw(&data);
-	parallel_for(blocked_range<uint64_t>(0, data.size), dD);
+	parallel_for(blocked_range<int>(0, data.size), dD);
 
 	/* 4. Effectuer le rendu final */
 	DragonRender dR = DragonRender(&data);
-	parallel_for(blocked_range<uint_64>(0, data.size), dR);
+	parallel_for(blocked_range<int>(0, data.size), dR);
 	
 	init.terminate();
 
 	free_palette(palette);
 	FREE(data.tid);
 	*canvas = dragon;
-	//*canvas = NULL;
+	// *canvas = NULL;
 	return 0;
 }
 
@@ -165,15 +165,14 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
  */
 int dragon_limits_tbb(limits_t *limits, uint64_t size, int nb_thread)
 {
-	TODO("dragon_limits_tbb");
 	DragonLimits lim;
 
 	task_scheduler_init task(nb_thread); // Pour initialiser le nombre de task necessaire
-	parallel_reduce(blocked_range<uint64_t*>(0, size), lim);
+	parallel_reduce(blocked_range<uint64_t>(0, size), lim);
 
 	piece_t piece;
-	//piece_init(&piece);
-	piece = lim.piece; // on veut celle calcule.
+	// piece_init(&piece);
+	piece = lim._value; // on veut celle calcule.
 	*limits = piece.limits;
 	return 0;
 }
