@@ -20,7 +20,6 @@ using namespace std;
 using namespace tbb;
 
 static TidMap* tid = NULL;
-static int test = 0;
 
 class DragonLimits {
 	public:
@@ -43,18 +42,27 @@ class DragonLimits {
 };
 
 class DragonDraw {
+	
 	public:
-		int _i;
+		uint64_t _i;
 		struct draw_data* _data;
 
 		DragonDraw(struct draw_data* data) : _i(0), _data(data) {}
 		DragonDraw(const DragonDraw& dD) : _data(dD._data){
-			cout << " Copy " << tid->getIdFromTid(gettid()) << endl;
+			//cout << " Copy " << gettid() << endl;
 			_i = tid->getIdFromTid(gettid());
 		}
 		void operator()(const blocked_range<uint64_t>& r) const {
-			cout << " operator " << _i << endl;
-			dragon_draw_raw(r.begin() , r.end(), _data->dragon, _data->dragon_width, _data->dragon_height, _data->limits, _i);
+			//Si la ligne ci-dessous est decommentee, on ralenti
+			//le calcul, donc on force la repartition des taches sur plusieurs
+			//threads. Sinon, lorsqu'elle est commentee, seulement 
+			//notre image sera dessinee avec un seul thread.
+			
+			//cout << " operator " << _i << endl;
+			
+			//if (r.begin() < (_data->size / _data->nb_thread))
+			
+			dragon_draw_raw(r.begin(), r.end(), _data->dragon, _data->dragon_width, _data->dragon_height, _data->limits, _i);
 		}
 };
 
@@ -133,6 +141,7 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
 	data.deltaJ = deltaJ;
 	data.palette = palette;
 	data.tid = (int *) calloc(nb_thread, sizeof(int));
+	
 	tid = new TidMap(nb_thread);	
 
 	/* 2. Initialiser la surface : DragonClear */
