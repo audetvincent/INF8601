@@ -236,7 +236,7 @@ int sinoscope_image_opencl(sinoscope_t *ptr)
     ret = clFinish(queue);
     ERR_THROW(CL_SUCCESS, ret, "clFinish failed");
 
-    ret = clEnqueueReadBuffer(queue, output, CL_TRUE, 0, sino.buf_size, sino.buf, 0, NULL, NULL);
+    ret = clEnqueueReadBuffer(queue, output, CL_FALSE, 0, sino.buf_size, sino.buf, 0, NULL, NULL);
     ERR_THROW(CL_SUCCESS, ret, "clEnqueueReadBuffer failed");
 
     if (ptr == NULL)

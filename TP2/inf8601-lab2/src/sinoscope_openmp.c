@@ -43,4 +43,5 @@ int sinoscope_image_openmp(sinoscope_t *ptr)
             sino.buf[index + 2] = c.b;
         }
     }
+    return 0;
 }
