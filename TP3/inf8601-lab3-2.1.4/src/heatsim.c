@@ -64,7 +64,7 @@ typedef struct command_opts {
 } opts_t;
 
 static opts_t *global_opts = NULL;
-
+void dump_ctx(ctx_t *ctx);
 __attribute__((noreturn))
 static void usage(void) {
 	fprintf(stderr, PROGNAME " " VERSION " " PACKAGE_NAME "\n");
@@ -215,16 +215,16 @@ int init_ctx(ctx_t *ctx, opts_t *opts) {
 	grid_t *new_grid = NULL;
 
 	/* create 2D cartesian communicator */
-	MPI_Cart_create(MPI_COMM_WORLD, DIM_2D, ctx->dims, ctx-isperiodic, ctx-reorder, &ctx-comm2d);
+	MPI_Cart_create(MPI_COMM_WORLD, DIM_2D, ctx->dims, ctx->isperiodic, ctx->reorder, &ctx->comm2d);
 
 	/*
 	 * le processus rank=0 charge l'image du disque
 	 * et transfert chaque section aux autres processus
 	 */
-	MPI_Cart_shift(cts->comm2d, 1, 1, &ctx->north_peer, &ctx->south_peer);
-	MPI_Cart_shift(cts->comm2d, 0, 1, &ctx->west_peer, &ctx->east_peer);
+	MPI_Cart_shift(ctx->comm2d, 1, 1, &ctx->north_peer, &ctx->south_peer);
+	MPI_Cart_shift(ctx->comm2d, 0, 1, &ctx->west_peer, &ctx->east_peer);
 	dump_ctx(ctx);
-	int dst_grid_inf[2];
+	int dst_grid_info[2];
 
 	if(ctx->rank ==0){
 		/* load input image */
@@ -247,13 +247,14 @@ int init_ctx(ctx_t *ctx, opts_t *opts) {
 		 * send grid dimensions and data
 		 * Comment traiter le cas de rank=0 ?
 		 */
-		for(int i = 0; i < ctx->numprocs; ++i){
-			MPI_Cart_coords(ctx->comm2d, i, DIM_2D, ctx-coords);
+        int i;
+		for(i = 0; i < ctx->numprocs; ++i){
+			MPI_Cart_coords(ctx->comm2d, i, DIM_2D, ctx->coords);
 
 			grid_t *dst_grid;
 			dst_grid = cart2d_get_grid(ctx->cart, ctx->coords[0], ctx->coords[1]);
 			if(i == 0){
-				new_grid = grid.clone(dst_grid);
+				new_grid = grid_clone(dst_grid);
 			} else {
 				dst_grid_info[0] = dst_grid->width;
 				dst_grid_info[1] = dst_grid->height;
@@ -268,7 +269,7 @@ int init_ctx(ctx_t *ctx, opts_t *opts) {
 		 */
 		MPI_Recv(dst_grid_info, 2, MPI_INT, 0, 0, ctx->comm2d, &status);
 		new_grid = make_grid(dst_grid_info[0], dst_grid_info[1], 0);
-		MPI_Recv(new_grid->dbl, dst_grid_info[0]*dst_grid_info[1], MPI_DOUBLE, 0, 1, ctx->comm2d);
+		MPI_Recv(new_grid->dbl, dst_grid_info[0]*dst_grid_info[1], MPI_DOUBLE, 0, 1, ctx->comm2d, &status);
 	}
 
 	/* Utilisation temporaire de global_grid */
@@ -301,10 +302,9 @@ void dump_ctx(ctx_t *ctx) {
 
 void exchng2d(ctx_t *ctx) {
 	/*
-	 *  FIXME: Echanger les bordures avec les voisins
+	 * Echanger les bordures avec les voisins
 	 * 4 echanges doivent etre effectues
 	 */
-	TODO("lab3");
 	
 	grid_t *grid = ctx->next_grid;
 	int width = grid->pw;
@@ -329,11 +329,10 @@ void exchng2d(ctx_t *ctx) {
 	MPI_Irecv(data+width-1, 1, ctx->vector, ctx->east_peer, 0, comm, &req[6]);
 	MPI_Isend(data+width-2, 1, ctx->vector, ctx->east_peer, 0, comm, &req[7]);
 	
-	MPI_waitall(8, req, status);
+	MPI_Waitall(8, req, status);
 }
 
 int gather_result(ctx_t *ctx, opts_t *opts) {
-	TODO("lab3");
 
 	int ret = 0;
 	grid_t *local_grid = grid_padding(ctx->next_grid, 0);
@@ -350,10 +349,11 @@ int gather_result(ctx_t *ctx, opts_t *opts) {
 	if(ctx->rank == 0)
 		recv_buff = (double *)malloc(ctx->numprocs*bufferPad*sizeof(double));
 
-	MPI_Gather(local_grid->dbl, size, recv_buff, size, MPI_DOUBLE, 0, ctx->comm2d);
+	MPI_Gather(local_grid->dbl, size, MPI_DOUBLE, recv_buff, size, MPI_DOUBLE, 0, ctx->comm2d);
 	
 	if(ctx->rank == 0){
-		for(int i = 0; i < ctx->numprocs; ++i){
+        int i;
+		for(i = 0; i < ctx->numprocs; ++i){
 			MPI_Cart_coords(ctx->comm2d, i, DIM_2D, ctx->coords);
 			grid_t* grid = cart2d_get_grid(ctx->cart, ctx->coords[0], ctx->coords[1]);
 			memcpy(grid->dbl, recv_buff + i * size, size * sizeof(double));
